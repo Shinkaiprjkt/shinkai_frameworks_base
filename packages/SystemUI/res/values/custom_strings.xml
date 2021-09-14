@@ -123,4 +123,7 @@
     <!-- 4G icon instead LTE -->
     <string name="fourg_icon_title">4G icon</string>
 
+    <!-- Refresh Rate Tile -->
+    <string name="refresh_rate_tile_label">Refresh rate</string>
+    <string name="auto_mode_label">Auto</string>
 </resources>
