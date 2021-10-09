@@ -2278,6 +2278,9 @@
     <dimen name="gradient_color_wallpaper_center_offset">128dp</dimen>
     <!-- Gradient color wallpaper end -->
 
+    <!-- Maximum vertical offset of statusbar for burn-in protection -->
+    <dimen name="status_bar_offset_max_y">4dp</dimen>
+
     <!-- Rear display mode -->
     <dimen name="rear_display_dialog_slider_height">42dp</dimen>
     <dimen name="rear_display_dialog_slider_corner_radius">21dp</dimen>
