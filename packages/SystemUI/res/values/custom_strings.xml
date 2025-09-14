@@ -116,4 +116,7 @@
     <string name="global_action_restart_download_progress">Restarting to download mode\u2026</string>
     <!-- Button to restart SystemUI, within the Restart Options dialog -->
     <string name="global_action_restart_systemui">SystemUI</string>
+
+    <!-- Data disabled icon -->
+    <string name="data_disabled_icon_title">Data disabled icon</string>
 </resources>
