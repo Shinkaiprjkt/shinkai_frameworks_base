@@ -27,6 +27,7 @@ import com.android.settingslib.devicestate.DeviceStateAutoRotateSettingManagerIm
 import com.android.settingslib.devicestate.PostureDeviceStateConverter
 import com.android.settingslib.devicestate.SecureSettings
 import com.android.settingslib.notification.modes.ZenIconLoader
+import com.android.systemui.animation.DialogTransitionAnimator
 import com.android.systemui.CoreStartable
 import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.dagger.qualifiers.Application
@@ -35,6 +36,7 @@ import com.android.systemui.dagger.qualifiers.Main
 import com.android.systemui.dagger.qualifiers.UiBackground
 import com.android.systemui.log.LogBuffer
 import com.android.systemui.log.LogBufferFactory
+import com.android.systemui.plugins.ActivityStarter
 import com.android.systemui.settings.UserTracker
 import com.android.systemui.statusbar.connectivity.AccessPointController
 import com.android.systemui.statusbar.connectivity.AccessPointControllerImpl
@@ -78,6 +80,8 @@ import com.android.systemui.statusbar.policy.SplitShadeStateController
 import com.android.systemui.statusbar.policy.SplitShadeStateControllerImpl
 import com.android.systemui.statusbar.policy.UserInfoController
 import com.android.systemui.statusbar.policy.UserInfoControllerImpl
+import com.android.systemui.statusbar.policy.VolumeController
+import com.android.systemui.statusbar.policy.VolumeDialogDelegate
 import com.android.systemui.statusbar.policy.WalletController
 import com.android.systemui.statusbar.policy.WalletControllerImpl
 import com.android.systemui.statusbar.policy.ZenModeController
@@ -102,6 +106,7 @@ import dagger.multibindings.IntoMap
 import java.util.concurrent.Executor
 import java.util.concurrent.ExecutorService
 import javax.inject.Named
+import javax.inject.Provider
 
 /** Dagger Module for code in the statusbar.policy package. */
 @Module(includes = [DeviceProvisioningRepositoryModule::class, SupervisionRepositoryModule::class])
@@ -362,5 +367,27 @@ interface StatusBarPolicyModule {
 
         const val DEVICE_STATE_ROTATION_LOCK_DEFAULTS: String =
             "DEVICE_STATE_ROTATION_LOCK_DEFAULTS"
+
+        /** Provides a [FlashlightStrengthController] */
+        @Provides
+        @SysUISingleton
+        @JvmStatic
+        fun provideVolumeController(
+            @Application context: Context,
+            dialogTransitionAnimator: DialogTransitionAnimator,
+            dialogDelegateProvider: Provider<VolumeDialogDelegate>,
+            keyguardStateController: KeyguardStateController,
+            activityStarter: ActivityStarter,
+            @Main mainHandler: Handler
+        ): VolumeController {
+            return VolumeController(
+                context,
+                dialogTransitionAnimator,
+                dialogDelegateProvider,
+                keyguardStateController,
+                activityStarter,
+                mainHandler
+            )
+        }
     }
 }

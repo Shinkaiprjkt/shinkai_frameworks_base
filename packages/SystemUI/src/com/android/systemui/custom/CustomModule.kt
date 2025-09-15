@@ -32,6 +32,7 @@ import com.android.systemui.qs.tiles.RefreshRateTile
 import com.android.systemui.qs.tiles.SyncTile
 import com.android.systemui.qs.tiles.UsbTetherTile
 import com.android.systemui.qs.tiles.BlurTile
+import com.android.systemui.qs.tiles.VolumeQSTile
 import com.android.systemui.qs.tiles.VpnTile
 import com.android.systemui.qs.tiles.SoundTile
 import com.android.systemui.qs.tiles.base.shared.model.QSTileConfig
@@ -118,6 +119,12 @@ interface CustomModule {
     @StringKey(BlurTile.TILE_SPEC)
     fun bindBlurTile(blurTile: BlurTile): QSTileImpl<*>
 
+    /** Inject VolumeQSTile into tileMap in QSModule */
+    @Binds
+    @IntoMap
+    @StringKey(VolumeQSTile.TILE_SPEC)
+    fun bindVolumeQSTile(volumeQSTile: VolumeQSTile): QSTileImpl<*>
+
     /** Inject VpnTile into tileMap in QSModule */
     @Binds
     @IntoMap
@@ -141,6 +148,7 @@ interface CustomModule {
         const val READING_MODE_TILE_SPEC = "reading_mode"
         const val SYNC_TILE_SPEC = "sync"
         const val USB_TETHER_TILE_SPEC = "usb_tether"
+        const val VOLUME_TILE_SPEC = "volume"
         const val VPN_TILE_SPEC = "vpn"
         const val SOUND_TILE_SPEC = "sound"
 
@@ -322,6 +330,21 @@ interface CustomModule {
                     ),
                 instanceId = uiEventLogger.getNewInstanceId(),
                 category = TileCategory.DISPLAY,
+            )
+
+        @Provides
+        @IntoMap
+        @StringKey(VOLUME_TILE_SPEC)
+        fun provideVolumeQSTile(uiEventLogger: QsEventLogger): QSTileConfig =
+            QSTileConfig(
+                tileSpec = TileSpec.create(VOLUME_TILE_SPEC),
+                uiConfig =
+                    QSTileUIConfig.Resource(
+                        iconRes = R.drawable.ic_volume_media,
+                        labelRes = R.string.quick_settings_volume_label
+                    ),
+                instanceId = uiEventLogger.getNewInstanceId(),
+                category = TileCategory.UTILITIES
             )
 
         @Provides
