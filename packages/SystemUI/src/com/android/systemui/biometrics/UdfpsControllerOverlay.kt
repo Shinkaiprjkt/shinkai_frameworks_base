@@ -305,6 +305,12 @@ constructor(
     fun hide(): Boolean {
         val wasShowing = isShowing
         Log.d(TAG, "hideUdfpsControllerOverlay wasShowing=$wasShowing")
+
+        // Cancel any pending addView to prevent adding a view that will never be removed.
+        addViewRunnable = null
+        listenForCurrentKeyguardState?.cancel()
+        listenForCurrentKeyguardState = null
+
         overlayTouchView?.apply {
             if (isDisplayConfigured) {
                 unconfigureDisplay()
@@ -331,7 +337,6 @@ constructor(
 
         overlayTouchView = null
         overlayTouchListener = null
-        listenForCurrentKeyguardState?.cancel()
 
         return wasShowing
     }

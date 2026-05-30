@@ -96,6 +96,9 @@ public class UdfpsSurfaceView extends SurfaceView implements SurfaceHolder.Callb
 
     @Override public void surfaceDestroyed(SurfaceHolder holder) {
         mHasValidSurface = false;
+        // Clear any pending illumination request to avoid operating on a destroyed surface.
+        mAwaitingSurfaceToStartIllumination = false;
+        mOnDisplayConfigured = null;
     }
 
     public void setGhbmIlluminationListener(@Nullable GhbmIlluminationListener listener) {
