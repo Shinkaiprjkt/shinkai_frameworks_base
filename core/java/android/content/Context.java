@@ -7026,6 +7026,11 @@ public abstract class Context {
     public static final String LOCALE_SERVICE = "locale";
 
     /**
+     * @hide
+     */
+    public static final String APP_DATA_BACKUP_SERVICE = "app_data_backup";
+
+    /**
      * Use with {@link #getSystemService(String)} to retrieve a {@link
      * android.safetycenter.SafetyCenterManager} instance for interacting with the safety center.
      *
