@@ -95,11 +95,6 @@
     <java-symbol type="array" name="config_displayModeMappings" />
     <java-symbol type="bool" name="config_defaultAntiFlicker" />
 
-    <!-- PropImitationHooks -->
-    <java-symbol type="array" name="config_certifiedBuildProperties" />
-    <java-symbol type="string" name="config_stockFingerprint" />
-    <java-symbol type="string" name="config_netflixSpoofModel" />
-
    <!-- API URL to fetch PIF from -->
    <java-symbol type="string" name="config_pifUpdateUrl" />
 
