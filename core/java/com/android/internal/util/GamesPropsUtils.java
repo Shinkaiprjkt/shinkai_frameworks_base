@@ -222,7 +222,7 @@ public class GamesPropsUtils {
         return props;
     }
 
-    private static map<String, Object> createLY700Props() {
+    private static Map<String, Object> createLY700Props() {
         Map<String, Object> props = new HashMap<>();
         props.put("BRAND", "Lenovo");
         props.put("MANUFACTURER", "Lenovo");
