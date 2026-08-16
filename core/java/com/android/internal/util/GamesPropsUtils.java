@@ -120,7 +120,7 @@ public class GamesPropsUtils {
           "com.garena.game.codm",
           "com.tencent.tmgp.kr.codm",
           "com.vng.codmvn"
-        })
+        });
     }
 
     private static Map<String, Object> createBS4Props() {
