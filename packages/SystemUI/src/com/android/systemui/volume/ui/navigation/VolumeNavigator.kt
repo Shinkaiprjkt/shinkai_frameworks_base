@@ -19,6 +19,7 @@ package com.android.systemui.volume.ui.navigation
 import android.app.Dialog
 import android.content.Intent
 import android.provider.Settings
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -94,11 +95,7 @@ constructor(
                 )
             VolumePanelRoute.SYSTEM_UI_VOLUME_PANEL ->
                 volumePanelFactory.create(aboveStatusBar = true, view = null)
-            VolumePanelRoute.APP_VOLUME_PANEL ->
-                activityStarter.startActivity(
-                    /* intent= */ Intent(Settings.Panel.ACTION_APP_VOLUME),
-                    /* dismissShade= */ true
-                )
+            VolumePanelRoute.APP_VOLUME_PANEL -> showAppVolumePanel()
         }
     }
 
@@ -133,5 +130,26 @@ constructor(
             // TODO(b/337205027) change maxWidth
             maxWidth = 800.dp,
         )
+    }
+
+    /**
+     * Standalone Material 3 bottom sheet for the per-app volume mixer.
+     *
+     * Deliberately not routed through [volumePanelGlobalStateInteractor] /
+     * [createNewVolumePanelDialog] — this is its own dialog with its own
+     * lifecycle, shown immediately on click, dismissed on its own via the
+     * bottom sheet's drag/scrim handling.
+     */
+    private fun showAppVolumePanel() {
+        dialogFactory
+            .createBottomSheet(
+                content = {
+                    AppVolumePanelRoot(Modifier.sysUiResTagContainer())
+                },
+                isDraggable = true,
+                maxWidth = 800.dp,
+                containerColorProvider = { MaterialTheme.colorScheme.surface },
+            )
+            .show()
     }
 }
