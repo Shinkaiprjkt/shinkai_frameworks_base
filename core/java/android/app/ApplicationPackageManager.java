@@ -143,6 +143,7 @@ import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.os.ApplicationSharedMemory;
 import com.android.internal.os.SomeArgs;
 import com.android.internal.pm.RoSystemFeatures;
+import com.android.internal.util.PixelPropsUtils;
 import com.android.internal.util.UserIcons;
 
 import dalvik.system.VMRuntime;
@@ -838,34 +839,34 @@ public class ApplicationPackageManager extends PackageManager {
                 }
             };
 
-    @Override
-    @RavenwoodRedirect
-    public boolean hasSystemFeature(String name, int version) {
-        // We check for system features in the following order:
-        //    * Build time-defined system features (constant, very efficient)
-        //    * SDK-defined system features (cached at process start, very efficient)
-        //    * IPC-retrieved system features (lazily cached, requires per-feature IPC)
-        // TODO(b/375000483): Refactor all of this logic, including flag queries, into
-        // the SystemFeaturesCache class after initial rollout and validation.
-        Boolean maybeHasSystemFeature = RoSystemFeatures.maybeHasFeature(name, version);
-        if (maybeHasSystemFeature != null) {
-            return maybeHasSystemFeature;
-        }
-        if (mUseSystemFeaturesCache) {
-            maybeHasSystemFeature =
-                    SystemFeaturesCache.getInstance().maybeHasFeature(name, version);
+        @Override
+        @RavenwoodRedirect
+        public boolean hasSystemFeature(String name, int version) {
+            // We check for system features in the following order:
+            //    * Build time-defined system features (constant, very efficient)
+            //    * SDK-defined system features (cached at process start, very efficient)
+            //    * IPC-retrieved system features (lazily cached, requires per-feature IPC)
+            // TODO(b/375000483): Refactor all of this logic, including flag queries, into
+            // the SystemFeaturesCache class after initial rollout and validation.
+            Boolean maybeHasSystemFeature = RoSystemFeatures.maybeHasFeature(name, version);
             if (maybeHasSystemFeature != null) {
-                return maybeHasSystemFeature;
+                return PixelPropsUtils.hasSystemFeature(name, maybeHasSystemFeature);
             }
+            if (mUseSystemFeaturesCache) {
+                maybeHasSystemFeature =
+                        SystemFeaturesCache.getInstance().maybeHasFeature(name, version);
+                if (maybeHasSystemFeature != null) {
+                    return PixelPropsUtils.hasSystemFeature(name, maybeHasSystemFeature);
+                }
+            }
+            return PixelPropsUtils.hasSystemFeature(name,
+                    mHasSystemFeatureCache.query(new HasSystemFeatureQuery(name, version)));
         }
-        return mHasSystemFeatureCache.query(new HasSystemFeatureQuery(name, version));
-    }
-
     /** @hide */
     public static void invalidateHasSystemFeatureCache() {
         mHasSystemFeatureCache.invalidateCache();
     }
-
+    
     @Override
     public int checkPermission(String permName, String pkgName) {
         return getPermissionManager().checkPackageNamePermission(permName, pkgName,

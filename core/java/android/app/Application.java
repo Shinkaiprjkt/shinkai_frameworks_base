@@ -32,7 +32,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.autofill.AutofillManager;
-
+import com.android.internal.util.PixelPropsUtils;
 import java.util.ArrayList;
 
 /**
@@ -242,6 +242,12 @@ public class Application extends ContextWrapper implements ComponentCallbacks2 {
 
     public Application() {
         super(null);
+    }
+
+    @Override
+    protected void attachBaseContext(Context base) {
+        super.attachBaseContext(base);
+        PixelPropsUtils.setProps(this);
     }
 
     private String getLoadedApkInfo() {
