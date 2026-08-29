@@ -100,7 +100,7 @@ public final class PixelPropsUtils {
 
     private static final String PACKAGE_GPHOTOS = "com.google.android.apps.photos";
     // Google Photos package name. We give this SPECIAL treatment:
-    // - Spoof to original Pixel (sailfish) for unlimited backup
+    // - Spoof to original Pixel (marlin) for unlimited backup
     // - Filter hasSystemFeature() to fake NEXUS_PRELOAD
 
     private static final String PACKAGE_PREFIX_GOOGLE = "com.google.android.";
@@ -123,10 +123,10 @@ public final class PixelPropsUtils {
     // ------------------------------------------------------------------
     // This is the EXACT device profile that Google Photos checks for
     // "original quality unlimited backup".
-    // Photos looks at: BRAND=google, MANUFACTURER=Google, DEVICE=sailfish,
-    // MODEL=Pixel, and the fingerprint must be from the sailfish device.
+    // Photos looks at: BRAND=google, MANUFACTURER=Google, DEVICE=marlin,
+    // MODEL=Pixel, and the fingerprint must be from the marlin device.
     // We use Android 9 (PPR1...) fingerprint because it's the last version
-    // sailfish received, and Photos trusts it.
+    // marlin received, and Photos trusts it.
     private static final Map<String, Object> PROPS_PIXEL_XL = Map.of(
             "BRAND",         "google",
             "MANUFACTURER",  "Google",
@@ -401,13 +401,13 @@ public final class PixelPropsUtils {
         }
 
         if (sIsPhotos) {
-            // Google Photos gets the ORIGINAL Pixel (sailfish) profile.
+            // Google Photos gets the ORIGINAL Pixel (marlin) profile.
             // This is the KEY to unlimited backup. Photos checks:
             //   1. Is it a Pixel? (BRAND=google, MANUFACTURER=Google)
-            //   2. Is it an ORIGINAL Pixel? (DEVICE=sailfish, MODEL=Pixel)
+            //   2. Is it an ORIGINAL Pixel? (DEVICE=marlin, MODEL=Pixel)
             //   3. Does it have NEXUS_PRELOAD feature? (we fake this in hasSystemFeature)
             // If all three are true, Photos offers "Original quality" for free.
-            dlog("Spoofing Pixel (sailfish) for Google Photos");
+            dlog("Spoofing Pixel (marlin) for Google Photos");
             PROPS_PIXEL_XL.forEach(PixelPropsUtils::setField);
             // Map.forEach() iterates every entry and calls setField(key, value).
             // This overwrites all 6 Build fields in one shot.
@@ -421,14 +421,14 @@ public final class PixelPropsUtils {
 
         } else if (pkg.startsWith(PACKAGE_PREFIX_GOOGLE)) {
             // ALL other Google apps (Gmail, Drive, Calendar, etc.) get
-            // the latest Pixel 9 Pro XL profile. This enables:
+            // the latest Pixel 11 Pro XL profile. This enables:
             // - Call Screen
             // - Hold for Me
             // - Direct My Call
             // - Magic Eraser (in Photos editor, not the backup thing)
             // - Recorder transcriptions
             // - etc.
-            dlog("Spoofing Pixel 9 Pro XL for: " + pkg);
+            dlog("Spoofing Pixel 11 Pro XL for: " + pkg);
             PROPS_PIXEL_11_PRO_XL.forEach(PixelPropsUtils::setField);
         }
 
@@ -523,13 +523,13 @@ public final class PixelPropsUtils {
                 || name.contains("PIXEL_2020") || name.contains("PIXEL_2021")
                 || name.contains("PIXEL_2022") || name.contains("PIXEL_2023")
                 || name.contains("PIXEL_2024") || name.contains("PIXEL_2025")
-                || name.contains("PIXEL_2026")) {
+                || name.contains("PIXEL_2026") || name.contains("PIXEL_2027")) {
             dlog("Feature [" + name + "]: forced FALSE for Photos");
             return false;
         }
 
         // Allow 2017-era Pixel features. This is the fallback tier.
-        if (name.contains("PIXEL_2017")) {
+        if (name.contains("PIXEL_EXPERIENCE") || name.contains("PIXEL_2017")) {
             dlog("Feature [" + name + "]: forced TRUE for Photos");
             return true;
         }
