@@ -36,7 +36,6 @@ import android.view.View;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.Button;
 import android.widget.ImageView;
-import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -53,6 +52,7 @@ import com.android.packageinstaller.v2.model.InstallSuccess;
 import com.android.packageinstaller.v2.model.InstallUserActionRequired;
 import com.android.packageinstaller.v2.model.InstallVerificationFailure;
 import com.android.packageinstaller.v2.ui.InstallActionListener;
+import com.android.packageinstaller.v2.ui.SquigglyProgressBar;
 import com.android.packageinstaller.v2.ui.UiUtil;
 import com.android.packageinstaller.v2.viewmodel.InstallViewModel;
 
@@ -74,8 +74,8 @@ public class InstallationFragment extends DialogFragment {
     private View mAppSnippet = null;
     private TextView mCustomMessageTextView = null;
     private View mCustomViewPanel = null;
-    private ProgressBar mProgressBar = null;
-    private ProgressBar mIndeterminateProgressBar = null;
+    private SquigglyProgressBar mProgressBar = null;
+    private SquigglyProgressBar mIndeterminateProgressBar = null;
     private View mTitleTemplate = null;
     private View mMoreDetailsClickableLayout = null;
     private View mMoreDetailsExpandedLayout = null;
@@ -363,6 +363,7 @@ public class InstallationFragment extends DialogFragment {
         mProgressBar.setVisibility(View.GONE);
 
         mAppSnippet.setVisibility(View.VISIBLE);
+        mIndeterminateProgressBar.setIndeterminate(true);
         mIndeterminateProgressBar.setVisibility(View.VISIBLE);
 
         // Update the padding of the custom view panel
