@@ -32,14 +32,14 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.SequenceInputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Enumeration;
-import java.util.Iterator;
+import java.util.Collections;
 import java.util.List;
 import java.util.zip.Deflater;
 import java.util.zip.DeflaterInputStream;
@@ -77,7 +77,11 @@ final class BackupArchive {
 
     private static final String COMP_NONE = "none";
     private static final String COMP_DEFLATE = "deflate";
-    private static final int DEFLATE_LEVEL = Deflater.DEFAULT_COMPRESSION;
+    // Speed over ratio: app data is a mix of already-compressed media/caches
+    // and APKs (themselves zip-compressed), where higher deflate levels burn
+    // CPU time for negligible size gain. BEST_SPEED keeps backups CPU-light
+    // so the run is bounded by real disk/IPC throughput instead.
+    private static final int DEFLATE_LEVEL = Deflater.BEST_SPEED;
 
     private BackupArchive() {}
 
@@ -89,6 +93,20 @@ final class BackupArchive {
         IntegrityException(String message) { super(message); }
     }
 
+    /**
+     * Writes {@code entries} into {@code outFile} as a single compressed
+     * (optionally encrypted) archive with a manifest header.
+     *
+     * Each entry's SHA-256 is computed as a side effect of the same read
+     * that feeds the compressor/cipher (via {@link DigestingConcatInputStream}),
+     * instead of a separate full pass over every file just to hash it first --
+     * that used to mean every byte of backup data was read from disk twice.
+     * Because the on-disk format puts the header (which needs those hashes)
+     * before the payload, the compressed/encrypted payload is first written
+     * to a small temp file, then copied after the now-complete header; that
+     * copy is of the *compressed* payload, which is normally much smaller
+     * than the original data, so total I/O drops even in the worst case.
+     */
     static void write(@NonNull File outFile, @NonNull JSONObject manifestJson,
             @NonNull List<File> entries, @Nullable char[] passphrase) throws IOException {
         final boolean encrypt = passphrase != null && passphrase.length > 0;
@@ -97,6 +115,38 @@ final class BackupArchive {
         byte[] salt = null;
         SecretKey key = null;
         final int iterations = DEFAULT_ITERATIONS;
+        if (encrypt) {
+            salt = new byte[SALT_LEN];
+            rng.nextBytes(salt);
+            try {
+                key = deriveKey(passphrase, salt, iterations);
+            } catch (GeneralSecurityException e) {
+                throw new IOException("Key derivation failed", e);
+            }
+        }
+
+        final File payloadTmp = new File(outFile.getAbsolutePath() + ".payload.tmp");
+        final DigestingConcatInputStream digesting = new DigestingConcatInputStream(entries);
+        try (OutputStream payloadOut =
+                     new BufferedOutputStream(new FileOutputStream(payloadTmp), BUFFER)) {
+            final Deflater deflater = new Deflater(DEFLATE_LEVEL);
+            final InputStream transport = new DeflaterInputStream(digesting, deflater, BUFFER);
+            try {
+                if (!encrypt) {
+                    pipe(transport, payloadOut);
+                } else {
+                    writeEncrypted(payloadOut, transport, key, rng);
+                }
+            } finally {
+                transport.close();
+                deflater.end();
+            }
+        } catch (IOException e) {
+            payloadTmp.delete();
+            throw e;
+        }
+
+        final List<String> digests = digesting.getDigests();
 
         final JSONObject header = new JSONObject();
         try {
@@ -105,13 +155,6 @@ final class BackupArchive {
 
             final JSONObject enc = new JSONObject();
             if (encrypt) {
-                salt = new byte[SALT_LEN];
-                rng.nextBytes(salt);
-                try {
-                    key = deriveKey(passphrase, salt, iterations);
-                } catch (GeneralSecurityException e) {
-                    throw new IOException("Key derivation failed", e);
-                }
                 enc.put("scheme", SCHEME_AES);
                 enc.put("kdf", KDF);
                 enc.put("salt", Base64.encodeToString(salt, Base64.NO_WRAP));
@@ -124,43 +167,38 @@ final class BackupArchive {
             header.put("encryption", enc);
 
             final JSONArray arr = new JSONArray();
-            for (File f : entries) {
+            for (int i = 0; i < entries.size(); i++) {
+                final File f = entries.get(i);
                 final JSONObject e = new JSONObject();
                 e.put("name", f.getName());
                 e.put("size", f.length());
-                e.put("sha256", sha256OfFile(f));
+                e.put("sha256", digests.get(i));
                 arr.put(e);
             }
             header.put("entries", arr);
             header.put("compression", COMP_DEFLATE);
         } catch (JSONException e) {
+            payloadTmp.delete();
             throw new IOException("Failed to build archive header", e);
         }
 
         final byte[] headerBytes = header.toString().getBytes(StandardCharsets.UTF_8);
         final File tmp = new File(outFile.getAbsolutePath() + ".tmp");
-
-        try (OutputStream raw = new BufferedOutputStream(new FileOutputStream(tmp), BUFFER)) {
-            raw.write(MAGIC);
-            writeInt(raw, headerBytes.length);
-            raw.write(headerBytes);
-
-            final Deflater deflater = new Deflater(DEFLATE_LEVEL);
-            final InputStream logical = concat(entries);
-            final InputStream transport = new DeflaterInputStream(logical, deflater, BUFFER);
-            try {
-                if (!encrypt) {
-                    pipe(transport, raw);
-                } else {
-                    writeEncrypted(raw, transport, key, rng);
+        try {
+            try (OutputStream raw = new BufferedOutputStream(new FileOutputStream(tmp), BUFFER)) {
+                raw.write(MAGIC);
+                writeInt(raw, headerBytes.length);
+                raw.write(headerBytes);
+                try (InputStream payloadIn = new BufferedInputStream(
+                        new FileInputStream(payloadTmp), BUFFER)) {
+                    pipe(payloadIn, raw);
                 }
-            } finally {
-                transport.close();
-                deflater.end();
             }
         } catch (IOException e) {
             tmp.delete();
             throw e;
+        } finally {
+            payloadTmp.delete();
         }
 
         if (!tmp.renameTo(outFile)) {
@@ -411,31 +449,75 @@ final class BackupArchive {
         return name;
     }
 
-    private static InputStream concat(@NonNull List<File> files) {
-        final Iterator<File> it = files.iterator();
-        return new SequenceInputStream(new Enumeration<InputStream>() {
-            @Override public boolean hasMoreElements() { return it.hasNext(); }
-            @Override public InputStream nextElement() {
-                try {
-                    return new FileInputStream(it.next());
-                } catch (IOException e) {
-                    throw new IllegalStateException("Cannot open backup entry", e);
-                }
-            }
-        });
-    }
+    /**
+     * Concatenates {@code files} into one logical stream (same role as the
+     * old plain SequenceInputStream-based concat helper), but also computes
+     * each file's own SHA-256 as it's read -- available via
+     * {@link #getDigests()} once the stream has been fully consumed -- so
+     * the compress/encrypt pass doubles as the hashing pass instead of
+     * needing a separate read of every file beforehand.
+     */
+    private static final class DigestingConcatInputStream extends InputStream {
+        private final List<File> mFiles;
+        private final List<String> mDigests;
+        private int mIndex = -1;
+        private InputStream mCurrent;
+        private MessageDigest mDigest;
 
-    private static String sha256OfFile(@NonNull File f) throws IOException {
-        try {
-            final MessageDigest md = MessageDigest.getInstance("SHA-256");
-            final byte[] buf = new byte[BUFFER];
-            try (InputStream in = new BufferedInputStream(new FileInputStream(f))) {
-                int n;
-                while ((n = in.read(buf)) != -1) md.update(buf, 0, n);
+        DigestingConcatInputStream(@NonNull List<File> files) {
+            mFiles = files;
+            mDigests = new ArrayList<>(Collections.nCopies(files.size(), null));
+        }
+
+        List<String> getDigests() {
+            return mDigests;
+        }
+
+        @Override
+        public int read() throws IOException {
+            final byte[] one = new byte[1];
+            final int n = read(one, 0, 1);
+            return n == -1 ? -1 : (one[0] & 0xff);
+        }
+
+        @Override
+        public int read(@NonNull byte[] b, int off, int len) throws IOException {
+            while (true) {
+                if (mCurrent == null && !advance()) return -1;
+                final int n = mCurrent.read(b, off, len);
+                if (n == -1) {
+                    finishCurrent();
+                    continue;
+                }
+                mDigest.update(b, off, n);
+                return n;
             }
-            return toHex(md.digest());
-        } catch (GeneralSecurityException e) {
-            throw new IOException("SHA-256 unavailable", e);
+        }
+
+        private boolean advance() throws IOException {
+            mIndex++;
+            if (mIndex >= mFiles.size()) return false;
+            mCurrent = new FileInputStream(mFiles.get(mIndex));
+            try {
+                mDigest = MessageDigest.getInstance("SHA-256");
+            } catch (NoSuchAlgorithmException e) {
+                throw new IOException("SHA-256 unavailable", e);
+            }
+            return true;
+        }
+
+        private void finishCurrent() throws IOException {
+            mCurrent.close();
+            mDigests.set(mIndex, toHex(mDigest.digest()));
+            mCurrent = null;
+        }
+
+        @Override
+        public void close() throws IOException {
+            if (mCurrent != null) {
+                mCurrent.close();
+                mCurrent = null;
+            }
         }
     }
 
