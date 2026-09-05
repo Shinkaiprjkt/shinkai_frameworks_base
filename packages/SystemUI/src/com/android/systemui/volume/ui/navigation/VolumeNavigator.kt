@@ -19,7 +19,6 @@ package com.android.systemui.volume.ui.navigation
 import android.app.Dialog
 import android.content.Intent
 import android.provider.Settings
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -148,7 +147,6 @@ constructor(
                 },
                 isDraggable = true,
                 maxWidth = 800.dp,
-                containerColorProvider = { MaterialTheme.colorScheme.surface },
             )
             .show()
     }
