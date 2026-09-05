@@ -20,12 +20,18 @@ import android.content.Context;
 import android.util.AttributeSet;
 import android.view.View;
 
+import androidx.annotation.Nullable;
+
 import com.android.packageinstaller.R;
 
 /**
  * A horizontal progress bar rendered with an animated squiggly wave.
  * Supports both determinate ({@link #setProgress(int)}) and indeterminate
  * ({@link #setIndeterminate(boolean)}) modes.
+ *
+ * <p>The wave keeps animating (and stops) automatically as the view's visibility changes,
+ * since {@link SquigglyProgressDrawable} is set as this view's background and the platform
+ * forwards {@link View#onVisibilityAggregated(boolean)} to background drawables already.
  */
 public class SquigglyProgressBar extends View {
 
@@ -43,7 +49,7 @@ public class SquigglyProgressBar extends View {
     public SquigglyProgressBar(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
 
-        mProgressDrawable = new SquigglyProgressDrawable();
+        mProgressDrawable = new SquigglyProgressDrawable(context);
 
         final int indicatorColor = context.getColor(R.color.primaryColor);
         mProgressDrawable.setWaveColor(indicatorColor);
@@ -72,6 +78,70 @@ public class SquigglyProgressBar extends View {
 
     public boolean isIndeterminate() {
         return mIndeterminate;
+    }
+
+    /**
+     * Selects the indeterminate motion style: {@link SquigglyProgressDrawable#INDETERMINATE_STYLE_SCROLL}
+     * (default, a full-amplitude wave scrolling edge to edge),
+     * {@link SquigglyProgressDrawable#INDETERMINATE_STYLE_GROW} (a wavy segment growing in and
+     * receding on a repeat cycle), or {@link SquigglyProgressDrawable#INDETERMINATE_STYLE_DASH}
+     * (wave scrolls across most of the width, with a fixed-length static flat dash always at
+     * the trailing edge — see {@link #setFixedDashLength}). No effect while determinate.
+     */
+    public void setIndeterminateStyle(int style) {
+        mProgressDrawable.setIndeterminateStyle(style);
+    }
+
+    /** Length of the permanent dash for {@code INDETERMINATE_STYLE_DASH}, in dp. Default 24dp. */
+    public void setFixedDashLength(float dashLengthDp) {
+        mProgressDrawable.setFixedDashLength(dashLengthDp);
+    }
+
+    /**
+     * Smoothly flattens the wave into a solid line, signaling that the process this bar
+     * represents has finished (successfully, with an error, or by cancellation). Call this
+     * instead of jumping straight to {@code setVisibility(GONE)} so the indicator doesn't
+     * vanish mid-wave.
+     *
+     * @param onResolved optional callback once the wave has fully settled; a common pattern is
+     *                   {@code bar.resolve(() -> bar.setVisibility(View.GONE))}.
+     */
+    public void resolve(@Nullable Runnable onResolved) {
+        mProgressDrawable.resolve(onResolved);
+    }
+
+    /** Reverses {@link #resolve}, restoring the normal wave amplitude. */
+    public void unresolve() {
+        mProgressDrawable.unresolve();
+    }
+
+    /**
+     * Plays the "installation finished" transition — see
+     * {@link SquigglyProgressDrawable#finish}. Use this instead of {@link #resolve} when the
+     * process actually completed (rather than, say, just being paused).
+     */
+    public void finish(@Nullable Runnable onFinished) {
+        mProgressDrawable.finish(onFinished);
+    }
+
+    /** True once the wave has fully settled into a flat line via {@link #resolve}. */
+    public boolean isResolved() {
+        return mProgressDrawable.isResolved();
+    }
+
+    /** Horizontal wavelength of the wave, in dp. Default is 40dp. */
+    public void setWaveLength(float wavelengthDp) {
+        mProgressDrawable.setWaveLength(wavelengthDp);
+    }
+
+    /** Peak-to-center wave amplitude, in dp. Default is 3dp. */
+    public void setAmplitude(float amplitudeDp) {
+        mProgressDrawable.setAmplitude(amplitudeDp);
+    }
+
+    /** How fast the wave scrolls, in dp per second. Default matches one wavelength/second. */
+    public void setWaveSpeed(float dpPerSecond) {
+        mProgressDrawable.setWaveSpeed(dpPerSecond);
     }
 
     @Override

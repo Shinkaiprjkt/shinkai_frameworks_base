@@ -53,6 +53,7 @@ import com.android.packageinstaller.v2.model.InstallUserActionRequired;
 import com.android.packageinstaller.v2.model.InstallVerificationFailure;
 import com.android.packageinstaller.v2.ui.InstallActionListener;
 import com.android.packageinstaller.v2.ui.SquigglyProgressBar;
+import com.android.packageinstaller.v2.ui.SquigglyProgressDrawable;
 import com.android.packageinstaller.v2.ui.UiUtil;
 import com.android.packageinstaller.v2.viewmodel.InstallViewModel;
 
@@ -130,6 +131,22 @@ public class InstallationFragment extends DialogFragment {
     private InstallStage getCurrentInstallStage() {
         return new ViewModelProvider(requireActivity()).get(InstallViewModel.class)
                 .getCurrentInstallStage().getValue();
+    }
+
+    /**
+     * Hides the indeterminate progress bar to signal that installation has reached a terminal
+     * state (success, failure, or abort). If the wave was actively animating, this first plays
+     * the "finished" transition — snapping to a full bar and settling into a solid line —
+     * instead of vanishing abruptly mid-motion.
+     */
+    private void hideIndeterminateProgressBarWithResolve() {
+        if (mIndeterminateProgressBar.getVisibility() == View.VISIBLE
+                && !mIndeterminateProgressBar.isResolved()) {
+            mIndeterminateProgressBar.finish(
+                    () -> mIndeterminateProgressBar.setVisibility(View.GONE));
+        } else {
+            mIndeterminateProgressBar.setVisibility(View.GONE);
+        }
     }
 
     @Override
@@ -238,7 +255,7 @@ public class InstallationFragment extends DialogFragment {
 
     private void updateInstallAbortedUI(Dialog dialog, InstallAborted installStage) {
         mAppSnippet.setVisibility(View.GONE);
-        mIndeterminateProgressBar.setVisibility(View.GONE);
+        hideIndeterminateProgressBarWithResolve();
         mProgressBar.setVisibility(View.GONE);
 
         mCustomMessageTextView.setVisibility(View.VISIBLE);
@@ -272,7 +289,7 @@ public class InstallationFragment extends DialogFragment {
     }
 
     private void updateInstallFailedUI(Dialog dialog, InstallFailed installStage) {
-        mIndeterminateProgressBar.setVisibility(View.GONE);
+        hideIndeterminateProgressBarWithResolve();
         mProgressBar.setVisibility(View.GONE);
 
         mAppSnippet.setVisibility(View.VISIBLE);
@@ -363,6 +380,14 @@ public class InstallationFragment extends DialogFragment {
         mProgressBar.setVisibility(View.GONE);
 
         mAppSnippet.setVisibility(View.VISIBLE);
+        // Reset in case we're re-entering this stage after a resolve() was played earlier
+        // (e.g. install failed right after appearing to finish, then retried).
+        mIndeterminateProgressBar.unresolve();
+        // Real install progress is available for this stage (see setProgress() below), so
+        // show it as determinate — the wave fills up to match actual percentage, with the
+        // remainder rendered as a flat track, instead of an indeterminate scroll with no
+        // percentage at all.
+        mIndeterminateProgressBar.setIndeterminateStyle(SquigglyProgressDrawable.INDETERMINATE_STYLE_DASH);
         mIndeterminateProgressBar.setIndeterminate(true);
         mIndeterminateProgressBar.setVisibility(View.VISIBLE);
 
@@ -434,7 +459,7 @@ public class InstallationFragment extends DialogFragment {
 
     private void updateInstallSuccessUI(Dialog dialog, InstallSuccess installStage) {
         mCustomMessageTextView.setVisibility(View.GONE);
-        mIndeterminateProgressBar.setVisibility(View.GONE);
+        hideIndeterminateProgressBarWithResolve();
         mProgressBar.setVisibility(View.GONE);
 
         mAppSnippet.setVisibility(View.VISIBLE);
@@ -689,11 +714,20 @@ public class InstallationFragment extends DialogFragment {
     }
 
     /**
-     * Set the progress of the progress bar
+     * Set the progress of the progress bar. External code (the install session's progress
+     * callback) calls this as real progress comes in; it's forwarded to both progress bars
+     * since only one of them is visible depending on the current stage — {@link #mProgressBar}
+     * during staging, {@link #mIndeterminateProgressBar} during the actual install — so the
+     * wave fills to match real percentage instead of scrolling indeterminately with no
+     * percentage shown.
      */
     public void setProgress(int progress) {
         if (mProgressBar != null) {
             mProgressBar.setProgress(progress);
+        }
+        if (mIndeterminateProgressBar != null) {
+            mIndeterminateProgressBar.setIndeterminate(false);
+            mIndeterminateProgressBar.setProgress(progress);
         }
     }
 
